@@ -1,110 +1,155 @@
 import tkinter as tk
 from tkinter import messagebox
 import numpy as np
-class UserInputDialog:
-    def init(self):
+import matplotlib.pyplot as plt
+
+class RegressionApp:
+    def __init__(self):
         self.root = tk.Tk()
         self.root.title("Регрессия")
-    def enter(self):
-        frame = tk.LabelFrame(self.root, text='1')
-        frame.pack(padx=8, pady=8)
-        tk.Label(frame, text='Характеристики').grid(row=0, column=0)
-        tk.Label(frame, text='Константа').grid(row=2, column=0)
-        self.entry_characteristics = tk.Entry(frame)
-        self.entry_characteristics.grid(row=0, column=1)
-        self.entry_intercept = tk.Entry(frame)
-        self.entry_intercept.grid(row=2, column=1)
-        return_button = tk.Button(frame, text='Продолжить', command=self.submit)
-        return_button.grid(row=3, columnspan=2)
-        def validate_input():
-            try:
-                characteristics = float(self.entry_characteristics.get())
-                if not isinstance(characteristics, (int, float)):
-                    messagebox.showerror("Ошибка", "Характеристика должна быть числом.")
-                    return
-                elif not isinstance(characteristics, int):
-                    messagebox.showerror("Ошибка", "Характеристика должна быть целым числом.")
-                    return
-            except ValueError:
-                messagebox.showerror("Ошибка", "Характеристика должна быть числом.")
-                return
-            self.root.mainloop()
-        return_button['command'] = validate_input
-    def submit(self):
-        frame = tk.LabelFrame(self.root, text="Ввод данных")
-        frame.pack(padx=8, pady=8)
-        characteristics = int(self.entry_characteristics.get().strip())
-        feature_counts = range(characteristics)
-        vars_per_feature = []
-        weights = []
-        intercept = float(self.entry_intercept.get())
-        labels = []
-        entries = []
-        for feature in feature_counts:
-                label = tk.Label(frame, text=f'Весовой коэффициент {feature + 1}')
-                labels.append(label)
-                entry = tk.Entry(frame)
-                entries.append(entry)
-                label.grid(row=feature + 4, column=0)
-                entry.grid(row=feature + 4, column=1)
-                value = entry.get()
-                if value != '':
-                    try:
-                        weight = float(value)
-                    except ValueError:
-                        messagebox.showerror("Ошибка", f"Неправильный формат веса для {feature + 1}. Должно быть число.")
-                        return
-                    weights.append(weight)
-                else:
-                    messagebox.showerror("Ошибка", f"Весовой коэффициент {feature + 1} не может быть пустым.")
-                    return
-                label = tk.Label(frame, text=f'Количество переменных для характеристики {feature + 1}')
-                label.grid(row=feature + 4, column=2)
-                entry = tk.Entry(frame)
-                entry.grid(row=feature + 4, column=3)
-                var = int(entry.get())
-                vars_per_feature.append(var)
-        total_vars = sum(vars_per_feature)
-        variables = np.ones((total_vars, total_vars))
-        create_single_matrix(characteristics, vars_per_feature, total_vars, variables)
-        messagebox.showinfo("Успешный ввод данных")
-        self.root.destroy()
+        
+        self.create_initial_widgets()
+        
         self.root.mainloop()
-        return characteristics, weights, intercept, vars_per_feature
-    def exit(self, exc_type, exc_value, traceback):
-        self.root.quit()
-        return None
-def create_single_matrix(n_test, n_features, vars_per_feature):
-    variables = np.zeros((sum(vars_per_feature), sum(vars_per_feature)))
-    offset = 0
-    matrix = np.zeros((n_test, sum(vars_per_feature)))
-    for feature in range(n_features):
-        current_vars = vars_per_feature[feature]
-        variables[offset:offset+current_vars, offset:offset+current_vars] = 1
-        offset += current_vars
-    X = np.dot(variables, matrix)
-    return X
-
-def calculate_logistic_function(X, feature_counts, intercept):
-    probas = intercept + np.dot(X, feature_counts)
-    return 1 / (1 + np.exp(-probas))
-def main():
-    with UserInputDialog() as dialog:
-        if not dialog:
-            return
+    
+    def create_initial_widgets(self):
+        self.frame_initial = tk.Frame(self.root)
+        self.frame_initial.pack(padx=10, pady=10)
+        
+        tk.Label(self.frame_initial, text='Количество характеристик:').grid(row=0, column=0, sticky='e')
+        self.entry_characteristics = tk.Entry(self.frame_initial)
+        self.entry_characteristics.grid(row=0, column=1)
+        
+        tk.Label(self.frame_initial, text='Константа (интерцепт):').grid(row=1, column=0, sticky='e')
+        self.entry_intercept = tk.Entry(self.frame_initial)
+        self.entry_intercept.grid(row=1, column=1)
+        
+        self.button_continue = tk.Button(self.frame_initial, text='Продолжить', command=self.continue_to_weights)
+        self.button_continue.grid(row=2, column=0, columnspan=2, pady=(10, 0))
+    
+    def continue_to_weights(self):
         try:
-            n_features, weights, intercept, feature_counts = dialog.submit()
-        except TypeError:
+            self.n_features = int(self.entry_characteristics.get())
+            if self.n_features <= 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Ошибка", 'Количество характеристик должно быть положительным целым числом.')
             return
-        n_test = 1
-        X = create_single_matrix(n_test, n_features, feature_counts)
-        y = np.sum(X, axis=1) % 2
-        probabilities = calculate_logistic_function(X, weights, n_features, intercept)
-        for i in range(len(X)):
-            print(f"X: {X[i]}")
-            print(f"y: {y[i]}")
-            print(f"Probability: {probabilities[i]:.4f}")
-            print()
+        
+        try:
+            self.intercept = float(self.entry_intercept.get())
+        except ValueError:
+            messagebox.showerror("Ошибка", 'Константа должна быть числом.')
+            return
+        
+        # Destroy initial frame
+        self.frame_initial.destroy()
+        
+        # Proceed to weights input
+        self.create_weights_widgets()
+    
+    def create_weights_widgets(self):
+        self.frame_weights = tk.Frame(self.root)
+        self.frame_weights.pack(padx=10, pady=10)
+        
+        tk.Label(self.frame_weights, text='Введите веса и количество переменных для каждой характеристики').grid(row=0, column=0, columnspan=5)
+        
+        self.weight_entries = []
+        self.var_count_entries = []
+        
+        for i in range(self.n_features):
+            tk.Label(self.frame_weights, text=f'Характеристика {i+1}').grid(row=i+1, column=0)
+            tk.Label(self.frame_weights, text='Вес:').grid(row=i+1, column=1)
+            weight_entry = tk.Entry(self.frame_weights)
+            weight_entry.grid(row=i+1, column=2)
+            self.weight_entries.append(weight_entry)
+            
+            tk.Label(self.frame_weights, text='Количество переменных:').grid(row=i+1, column=3)
+            var_count_entry = tk.Entry(self.frame_weights)
+            var_count_entry.grid(row=i+1, column=4)
+            self.var_count_entries.append(var_count_entry)
+        
+        self.button_calculate = tk.Button(self.frame_weights, text='Рассчитать', command=self.calculate)
+        self.button_calculate.grid(row=self.n_features+1, column=0, columnspan=5, pady=(10, 0))
+    
+    def calculate(self):
+        self.weights = []
+        self.feature_counts = []
+        
+        for i in range(self.n_features):
+            try:
+                weight = float(self.weight_entries[i].get())
+                self.weights.append(weight)
+            except ValueError:
+                messagebox.showerror("Ошибка", f'Вес характеристики {i+1} должен быть числом.')
+                return
+            try:
+                var_count = int(self.var_count_entries[i].get())
+                if var_count <= 0:
+                    raise ValueError
+                self.feature_counts.append(var_count)
+            except ValueError:
+                messagebox.showerror("Ошибка", f'Количество переменных для характеристики {i+1} должно быть положительным целым числом.')
+                return
+        
+        # Now proceed to calculations
+        self.perform_regression()
+    
+    def perform_regression(self):
+        # For demonstration, let's create X as a random binary matrix
+        total_vars = sum(self.feature_counts)
+        n_samples = 100  # Let's assume a fixed number of samples
+        X = np.random.randint(0, 2, size=(n_samples, total_vars))
+        
+        # Generate weights vector
+        weights_expanded = []
+        idx = 0
+        for i, count in enumerate(self.feature_counts):
+            weights_expanded.extend([self.weights[i]] * count)
+        weights_array = np.array(weights_expanded)
+        
+        # Calculate probabilities
+        linear_combination = self.intercept + np.dot(X, weights_array)
+        probabilities = 1 / (1 + np.exp(-linear_combination))
+        
+        # For the target variable y, let's use a threshold
+        y = (probabilities >= 0.5).astype(int)
+        
+        # Display output in application window
+        self.display_results(X, y, probabilities)
+        
+        # Plot the results
+        self.plot_results(probabilities)
+    
+    def display_results(self, X, y, probabilities):
+        self.frame_weights.destroy()
+        
+        self.frame_results = tk.Frame(self.root)
+        self.frame_results.pack(padx=10, pady=10)
+        
+        # For demonstration, just show first 10 samples
+        tk.Label(self.frame_results, text='Первые 10 результатов:').pack()
+        text = tk.Text(self.frame_results, width=80, height=20)
+        text.pack()
+        
+        for i in range(10):
+            text.insert(tk.END, f"X[{i}]: {X[i]}\n")
+            text.insert(tk.END, f"y[{i}]: {y[i]}\n")
+            text.insert(tk.END, f"P(y=1): {probabilities[i]:.4f}\n")
+            text.insert(tk.END, "\n")
+        
+        self.button_exit = tk.Button(self.frame_results, text='Выйти', command=self.root.destroy)
+        self.button_exit.pack(pady=(10, 0))
+    
+    def plot_results(self, probabilities):
+        # Plotting a histogram of probabilities
+        plt.figure(figsize=(6,4))
+        plt.hist(probabilities, bins=20, edgecolor='k')
+        plt.title('Распределение вероятностей')
+        plt.xlabel('Вероятность')
+        plt.ylabel('Частота')
+        plt.tight_layout()
+        plt.show()
 
 if __name__ == "__main__":
-    main()
+    app = RegressionApp()
